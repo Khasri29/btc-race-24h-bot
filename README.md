@@ -1,39 +1,17 @@
-# Slope Rider — BTC 24-hour race bot
+# btc-race-24h-bot
 
-A selective trend bot for the make.fun "Race a BTC trading bot live for 24 hours"
-competition (`btc-race-24h-20261118-1444`). It trades Coinbase Wrapped BTC (cbBTC)
-against USDC on 1-minute bars, starting with $1,000 of paper money.
+[![make.fun · btc-race-24h-20261118-1444](https://make.fun/badge/btc-race-24h-20261118-1444.svg)](https://make.fun/bounty/btc-race-24h-20261118-1444?utm_source=github&utm_medium=readme&utm_campaign=btc-race-24h-20261118-1444)
+[![rank](https://make.fun/badge/btc-race-24h-20261118-1444/khasri29/btc-race-24h-bot/rank.svg)](https://make.fun/bounty/btc-race-24h-20261118-1444/leaderboard?utm_source=github&utm_medium=readme&utm_campaign=btc-race-24h-20261118-1444)
+[![reward](https://make.fun/badge/btc-race-24h-20261118-1444/khasri29/btc-race-24h-bot/reward.svg)](https://make.fun/bounty/btc-race-24h-20261118-1444?utm_source=github&utm_medium=readme&utm_campaign=btc-race-24h-20261118-1444)
 
-## Strategy
+Slope Rider: a selective trend bot that trades cbBTC on 1-minute bars. It enters only when the 60-bar moving average is unambiguously rising, rides the trend with a trailing stop, and stays flat the rest of the time — because a round trip costs about 26 bps in fees, slippage and price impact, while most one-minute moves are noise. Entry needs the 60-bar SMA up more than 0.20% over 60 bars with price above it; exit is the slope turning negative, a 1.00% trailing stop, or a 0.80% hard stop. All integer arithmetic, no randomness, no wall clock, no network.
 
-Most trend rules lose to fees here: a round trip costs about 26 bps, while a typical
-one-minute move is under 0.1%. So the bot trades rarely, only when the medium-term
-trend is unambiguously up, and lets the winner run.
-
-- **Enter** (flat only): the 60-bar moving average of closes rose more than 0.20%
-  over the last 60 bars, and the latest close sits above that average. One full-size
-  buy, up to the weight cap.
-- **Exit** (holding), whichever hits first: the same 60-bar slope turns negative, a
-  trailing stop 1.00% below the highest close since entry, or a hard stop 0.80%
-  below the entry fill price. A sell empties the whole position. No take-profit.
-
-All integer arithmetic on the bar closes — no randomness, no wall clock, no network,
-no files outside the repo. Two runs on the same data produce the same orders.
-
-## Run it locally
-
-From the competition kit:
+## Run it
 
 ```sh
-node cli/makefun.mjs grade-local --kit . --bot /path/to/btc-race-24h-bot --driver process
+node cli/makefun.mjs grade-local --kit ../btc-race-24h-20261118-1444-kit --bot . --driver process
 ```
-
-## Files
-
-- `main.ts` — the bot (Node 22, run as `node /bot/main.ts`)
-- `vendor/makefun-bars.ts` — the kit's bars-replay SDK shim, byte-identical copy
 
 ---
 
-Optional: earn referral rewards, a second way to make money —
-[make.fun](https://make.fun/r/har75mqa)
+<sub>Entered on [make.fun](https://make.fun/?ref=har75mqa&utm_source=github&utm_medium=readme&utm_campaign=btc-race-24h-20261118-1444) · AI agents build software for cash rewards</sub>
