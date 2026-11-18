@@ -11,9 +11,11 @@
 //
 // Exit (holding): the first of three that hits —
 //   - the same 60-bar SMA slope turns negative (the trend is gone), or
-//   - a trailing stop 1.00% below the highest close since the entry fill, or
+//   - a trailing stop 1.20% below the highest close since the entry fill, or
 //   - a hard stop 0.80% below the entry fill price.
-// A sell empties the whole position. No take-profit: a real trend is ridden, not capped.
+// A sell empties the whole position. After a stop exit (trailing or hard) the bot
+// sits out 30 bars before re-entering, so it does not buy the same chop twice.
+// No take-profit: a real trend is ridden, not capped.
 //
 // Everything is integer arithmetic on the bar closes, a pure function of the bars the
 // harness sent: no randomness, no wall clock, no network, no files outside the repo.
@@ -29,9 +31,16 @@ const SLOPE_WINDOW = 60;
 /** Enter when the SMA rose more than this over SLOPE_WINDOW bars, in basis points. */
 const SLOPE_ENTRY_BPS = 20n;
 /** Trailing stop below the highest close since the entry fill, in basis points. */
-const TRAIL_BPS = 100n;
+const TRAIL_BPS = 120n;
 /** Hard stop below the entry fill price, in basis points. */
 const STOP_BPS = 80n;
+/**
+ * Bars to sit out after a stop exit (trailing or hard) before re-entering: a stop
+ * means the tape just chopped against us, and re-entering at once usually buys the
+ * same chop again. A trend-failure exit (slope turning negative) has no cooldown —
+ * the trend filter itself is the guard there. 30 bars is half the slope window.
+ */
+const STOP_COOLDOWN_BARS = 30;
 /** Wide open: a fill at the next open rarely moves more than a few dozen bps. */
 const MAX_SLIPPAGE_BPS = 10_000;
 const BPS = 10_000n;
@@ -41,6 +50,8 @@ const closes: bigint[] = [];
 /** Fill price of the open position, and the highest close since it. Null while flat. */
 let entryPrice: bigint | null = null;
 let peakPrice: bigint | null = null;
+/** Batch seq of the last stop exit (trailing or hard); null if none yet. */
+let lastStopSeq: number | null = null;
 
 /** The simple moving average of the last `period` closes ending at index `end`. */
 function smaAt(end: number, period: number): bigint | null {
@@ -83,8 +94,10 @@ await runBars({
       i - SLOPE_WINDOW >= SMA_PERIOD - 1 ? smaAt(i - SLOPE_WINDOW, SMA_PERIOD) : null;
 
     if (held === undefined) {
-      // Flat: enter only on a confirmed rising medium-term trend.
+      // Flat: enter only on a confirmed rising medium-term trend, and not inside
+      // the cooldown after a stop exit.
       if (smaNow === null || smaThen === null || smaThen === 0n) return [];
+      if (lastStopSeq !== null && batch.seq - lastStopSeq < STOP_COOLDOWN_BARS) return [];
       if (slopeBps(smaNow, smaThen) <= SLOPE_ENTRY_BPS) return [];
       if (close <= smaNow) return [];
       const room = state.weightRoom(SYMBOL);
@@ -109,7 +122,13 @@ await runBars({
       smaNow !== null && smaThen !== null && smaThen !== 0n
         ? slopeBps(smaNow, smaThen)
         : null;
-    if ((slope !== null && slope < 0n) || close <= trailLine || close <= stopLine) {
+    const trendFailed = slope !== null && slope < 0n;
+    const hitTrail = close <= trailLine;
+    const hitStop = close <= stopLine;
+    if (trendFailed || hitTrail || hitStop) {
+      // A stop exit (trailing or hard) starts the re-entry cooldown; a pure
+      // trend-failure exit does not.
+      if (!trendFailed) lastStopSeq = batch.seq;
       return [
         {
           side: 'sell',
